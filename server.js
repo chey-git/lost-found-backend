@@ -29,10 +29,15 @@ app.use(cors({
   credentials: true,
 }));
 
+// ✅ Allow preflight (OPTIONS) requests for all routes
+app.options("*", cors());
+
+// ✅ Manual CORS headers (extra layer of safety)
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "https://campus-lost-found-c6d88.web.app");
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.header("Access-Control-Allow-Credentials", "true");
   next();
 });
 
@@ -47,7 +52,11 @@ app.use("/uploads", express.static(uploadDir));
 
 // ✅ Connect to MongoDB Atlas
 mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
   serverSelectionTimeoutMS: 10000, // handle slow networks
+  retryWrites: true,
+  w: "majority",
 })
   .then(() => console.log("✅ MongoDB Atlas Connected"))
   .catch((err) => console.error("❌ MongoDB connection error:", err));
@@ -123,6 +132,9 @@ app.delete("/api/items/:id", async (req, res) => {
     res.status(500).json({ error: "Failed to delete item" });
   }
 });
+
+// ✅ Health check route for Render
+app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
 // ✅ Root route (for health check)
 app.get("/", (req, res) => {
