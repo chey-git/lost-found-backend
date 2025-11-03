@@ -19,6 +19,8 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(express.json({ limit: "10mb" }));
 
+app.use('/uploads', express.static('uploads'));
+
 // ✅ Enable CORS (for Firebase + Localhost + Render)
 app.use(cors({
   origin: [
@@ -40,6 +42,8 @@ app.use((req, res, next) => {
   res.header("Access-Control-Allow-Credentials", "true");
   next();
 });
+
+
 
 // ✅ Ensure uploads directory exists
 const uploadDir = path.join(__dirname, "uploads");
