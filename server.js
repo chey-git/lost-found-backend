@@ -1,4 +1,4 @@
-// ✅ server.js (Final Render + Firebase Compatible Version)
+// ✅ server.js (Final, Fully Fixed for Render + Firebase)
 
 import express from "express";
 import mongoose from "mongoose";
@@ -11,7 +11,7 @@ import { fileURLToPath } from "url";
 
 dotenv.config();
 
-// ✅ Setup file paths (for ES Modules)
+// ✅ Setup ES Module paths
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -19,22 +19,19 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(express.json({ limit: "10mb" }));
 
-app.use('/uploads', express.static('uploads'));
-
 // ✅ Enable CORS (for Firebase + Localhost + Render)
-app.use(cors({
-  origin: [
-    "https://campus-lost-found-c6d88.web.app", // Firebase Hosting
-    "http://localhost:3000",                   // Local development
-  ],
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: [
+      "https://campus-lost-found-c6d88.web.app", // Firebase Hosting
+      "http://localhost:3000", // Local development
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true,
+  })
+);
 
-// ✅ Allow preflight (OPTIONS) requests for all routes
-app.options("*", cors());
-
-// ✅ Manual CORS headers (extra layer of safety)
+// ✅ Manual CORS headers (extra safety)
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "https://campus-lost-found-c6d88.web.app");
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
@@ -43,25 +40,20 @@ app.use((req, res, next) => {
   next();
 });
 
-
-
 // ✅ Ensure uploads directory exists
 const uploadDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
 }
 
-// ✅ Serve uploads folder publicly
+// ✅ Serve uploads folder publicly (IMPORTANT for Render)
 app.use("/uploads", express.static(uploadDir));
 
 // ✅ Connect to MongoDB Atlas
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  serverSelectionTimeoutMS: 10000, // handle slow networks
-  retryWrites: true,
-  w: "majority",
-})
+mongoose
+  .connect(process.env.MONGO_URI, {
+    serverSelectionTimeoutMS: 10000, // handle slow networks
+  })
   .then(() => console.log("✅ MongoDB Atlas Connected"))
   .catch((err) => console.error("❌ MongoDB connection error:", err));
 
@@ -93,8 +85,8 @@ app.post("/api/items", upload.single("image"), async (req, res) => {
   try {
     const { item_name, description, location, contact_number, type } = req.body;
 
-    // Use your Render URL instead of localhost
-    const baseUrl = process.env.RENDER_EXTERNAL_URL || "https://lost-found-backend-lrjz.onrender.com";
+    const baseUrl =
+      process.env.RENDER_EXTERNAL_URL || "https://lost-found-backend-lrjz.onrender.com";
     const imageUrl = req.file ? `${baseUrl}/uploads/${req.file.filename}` : null;
 
     const newItem = new Item({
@@ -137,10 +129,8 @@ app.delete("/api/items/:id", async (req, res) => {
   }
 });
 
-// ✅ Health check route for Render
+// ✅ Health check routes
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
-
-// ✅ Root route (for health check)
 app.get("/", (req, res) => {
   res.send("🚀 Lost & Found API is running successfully!");
 });
@@ -153,6 +143,6 @@ app.use((err, req, res, next) => {
   next();
 });
 
-// ✅ Use Render’s dynamic port (important!)
+// ✅ Dynamic port for Render
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
