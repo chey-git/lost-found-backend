@@ -1,13 +1,15 @@
+// ✅ server.js (Final Render + Firebase Compatible Version)
+
 import express from "express";
 import mongoose from "mongoose";
 import multer from "multer";
-import cors from "cors";
 import path from "path";
 import fs from "fs";
-import { fileURLToPath } from "url";
+import cors from "cors";
 import dotenv from "dotenv";
-dotenv.config();
+import { fileURLToPath } from "url";
 
+dotenv.config();
 
 // ✅ Setup file paths (for ES Modules)
 const __filename = fileURLToPath(import.meta.url);
@@ -17,14 +19,15 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(express.json({ limit: "10mb" }));
 
-// ✅ Setup CORS (adjust origin if needed)
-app.use(
-  cors({
-    origin: "http://localhost:3000", // <-- change this if your frontend runs elsewhere
-    methods: ["GET", "POST"],
-    credentials: true,
-  })
-);
+// ✅ Enable CORS (for Firebase + Localhost + Render)
+app.use(cors({
+  origin: [
+    "https://campus-lost-found-c6d88.web.app", // Firebase Hosting
+    "http://localhost:3000",                   // Local development
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true,
+}));
 
 // ✅ Ensure uploads directory exists
 const uploadDir = path.join(__dirname, "uploads");
@@ -35,13 +38,12 @@ if (!fs.existsSync(uploadDir)) {
 // ✅ Serve uploads folder publicly
 app.use("/uploads", express.static(uploadDir));
 
-// ✅ Connect to MongoDB
+// ✅ Connect to MongoDB Atlas
 mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 10000, // handle slow networks
 })
-.then(() => console.log("✅ MongoDB Atlas Connected"))
-.catch((err) => console.error("❌ MongoDB connection error:", err));
+  .then(() => console.log("✅ MongoDB Atlas Connected"))
+  .catch((err) => console.error("❌ MongoDB connection error:", err));
 
 // ✅ Define Schema and Model
 const itemSchema = new mongoose.Schema({
@@ -56,7 +58,7 @@ const itemSchema = new mongoose.Schema({
 
 const Item = mongoose.model("Item", itemSchema);
 
-// ✅ Setup Multer (file upload)
+// ✅ Multer setup for file upload
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
@@ -64,7 +66,6 @@ const storage = multer.diskStorage({
     cb(null, uniqueName);
   },
 });
-
 const upload = multer({ storage });
 
 // ✅ POST: Report an item
@@ -72,9 +73,9 @@ app.post("/api/items", upload.single("image"), async (req, res) => {
   try {
     const { item_name, description, location, contact_number, type } = req.body;
 
-    const imageUrl = req.file
-      ? `http://localhost:5000/uploads/${req.file.filename}`
-      : null;
+    // Use your Render URL instead of localhost
+    const baseUrl = process.env.RENDER_EXTERNAL_URL || "https://lost-found-backend-lrjz.onrender.com";
+    const imageUrl = req.file ? `${baseUrl}/uploads/${req.file.filename}` : null;
 
     const newItem = new Item({
       item_name,
@@ -104,31 +105,31 @@ app.get("/api/items", async (req, res) => {
   }
 });
 
+// ✅ DELETE: Remove an item by ID
+app.delete("/api/items/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Item.findByIdAndDelete(id);
+    res.json({ message: "🗑️ Item deleted successfully" });
+  } catch (err) {
+    console.error("❌ Error deleting item:", err);
+    res.status(500).json({ error: "Failed to delete item" });
+  }
+});
+
 // ✅ Root route (for health check)
 app.get("/", (req, res) => {
-  res.send("🚀 Lost & Found API is running");
+  res.send("🚀 Lost & Found API is running successfully!");
 });
 
 // ✅ Error handler for invalid JSON
 app.use((err, req, res, next) => {
   if (err instanceof SyntaxError && "body" in err) {
-    return res.status(400).send({ error: "Invalid JSON" });
+    return res.status(400).send({ error: "Invalid JSON format" });
   }
   next();
 });
 
-// ✅ DELETE route — Remove an item by ID
-app.delete("/api/items/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    await Item.findByIdAndDelete(id);
-    res.json({ message: "Item deleted successfully" });
-  } catch (err) {
-    console.error("Error deleting item:", err);
-    res.status(500).json({ error: "Failed to delete item" });
-  }
-});
-
-// ✅ Start the server
-const PORT = 5000;
+// ✅ Use Render’s dynamic port (important!)
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
